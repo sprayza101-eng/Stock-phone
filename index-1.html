@@ -72,14 +72,15 @@ const num=v=>{const n=parseFloat(String(v??'').replace(/,/g,''));return isNaN(n)
 const baht=n=>n?'฿'+n.toLocaleString('th-TH'):'-';
 const fmt=d=>new Date(d).toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'});
 
+const fixBrand=r=>{const t=(r.model+' '+r.name).toLowerCase();if(/ipad/.test(t))r.brand='IPAD';else if(/iphone/.test(t))r.brand='IPHONE';return r};
 function normalize(json){
   const out=[];
   for(const r of json){
     const k={};for(const key in r)k[key.trim().toLowerCase()]=r[key];
     const name=String(k['name']??'').trim();
     if(!name)continue;
-    out.push({code:String(k['product']??''),name,qty:num(k['number']),price:num(k['set price']),
-      brand:String(k['brand']||name.split(' ')[0]).trim().toUpperCase(),model:String(k['model']||name).trim()});
+    out.push(fixBrand({code:String(k['product']??''),name,qty:num(k['number']),price:num(k['set price']),
+      brand:String(k['brand']||name.split(' ')[0]).trim().toUpperCase(),model:String(k['model']||name).trim()}));
   }
   return out;
 }
@@ -91,12 +92,12 @@ async function load(){
     const res=await fetch(SB_URL+'/rest/v1/stock?id=eq.1&select=data,updated_at',{headers:H});
     if(!res.ok)throw new Error('HTTP '+res.status);
     const j=await res.json();
-    rows=(j[0]&&j[0].data)||[];
+    rows=((j[0]&&j[0].data)||[]).map(fixBrand);
     $('upd').textContent=rows.length?'อัปเดตล่าสุด '+fmt(j[0].updated_at):'ยังไม่มีข้อมูล';
     try{localStorage.setItem(KEY,JSON.stringify({rows,t:fmt(j[0].updated_at)}))}catch(_){}
   }catch(e){
     let c=null;try{c=JSON.parse(localStorage.getItem(KEY))}catch(_){}
-    if(c){rows=c.rows;$('upd').textContent='ข้อมูลเก่าจาก '+c.t}else{$('upd').textContent=''}
+    if(c){rows=c.rows.map(fixBrand);$('upd').textContent='ข้อมูลเก่าจาก '+c.t}else{$('upd').textContent=''}
     $('err').textContent='โหลดข้อมูลไม่ได้ ('+e.message+')';
   }
   $('ref').disabled=false;render();
