@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>สต็อกมือถือ</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1b2430;--mute:#66707d;--line:#dde1e7;--acc:#0b5fd9;--accbg:#e6efff;--ok:#0f7b4b;--warn:#b45309}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12161c;--card:#1a2029;--ink:#e8ecf1;--mute:#93a0b0;--line:#2b3441;--acc:#6ea4ff;--accbg:#1c2a45;--ok:#4cc38a;--warn:#f0a34a}}
+:root[data-theme="dark"]{--bg:#12161c;--card:#1a2029;--ink:#e8ecf1;--mute:#93a0b0;--line:#2b3441;--acc:#6ea4ff;--accbg:#1c2a45;--ok:#4cc38a;--warn:#f0a34a}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Sarabun",system-ui,sans-serif}
+.wrap{max-width:860px;margin:0 auto;padding:16px}
+h1{font-size:22px;margin:4px 0 12px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:16px}
+.tab{background:none;border:0;border-bottom:3px solid transparent;color:var(--mute);font:inherit;font-weight:500;padding:10px 14px;cursor:pointer}
+.tab[aria-selected=true]{color:var(--acc);border-color:var(--acc)}
+.drop{border:2px dashed var(--line);border-radius:12px;background:var(--card);padding:36px 16px;text-align:center}
+.drop.over{border-color:var(--acc);background:var(--accbg)}
+.btn{background:var(--acc);color:#fff;border:0;border-radius:8px;font:inherit;font-weight:500;padding:10px 18px;cursor:pointer}
+.btn.ghost{background:none;color:var(--mute);border:1px solid var(--line)}
+.mute{color:var(--mute);font-size:14px}
+.msg{margin-top:12px;font-size:14px}.err{color:var(--warn)}.good{color:var(--ok)}
+.brands{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:8px}
+.chip{flex:none;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;font:inherit;padding:6px 14px;cursor:pointer}
+.chip b{margin-left:6px;color:var(--mute);font-weight:500}
+.chip[aria-pressed=true]{background:var(--acc);border-color:var(--acc);color:#fff}
+.chip[aria-pressed=true] b{color:#fff}
+input[type=search]{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);margin-bottom:12px}
+.sum{display:flex;gap:20px;margin-bottom:12px;font-size:14px;color:var(--mute)}.sum strong{color:var(--ink);font-size:18px}
+details{background:var(--card);border:1px solid var(--line);border-radius:10px;margin-bottom:8px}
+summary{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;list-style:none}
+summary::-webkit-details-marker{display:none}
+.mn{flex:1;min-width:0}.mn div:first-child{font-weight:500;overflow-wrap:anywhere}
+.qty{background:var(--accbg);color:var(--acc);font-weight:700;border-radius:8px;padding:2px 10px;white-space:nowrap}
+.vars{border-top:1px solid var(--line);padding:4px 14px 8px}
+.v{display:flex;gap:10px;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.v:last-child{border:0}.v .n{overflow-wrap:anywhere}.v .q{font-weight:700;white-space:nowrap}
+.empty{text-align:center;padding:40px 16px;color:var(--mute)}
+[hidden]{display:none!important}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>สต็อกมือถือ</h1>
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" id="t-up" aria-selected="true">อัปโหลดข้อมูล</button>
+    <button class="tab" role="tab" id="t-st" aria-selected="false">ดูสต็อก</button>
+  </div>
+
+  <section id="p-up">
+    <div class="drop" id="drop">
+      <p style="margin:0 0 12px">ลากไฟล์มาวางที่นี่ หรือเลือกไฟล์ Excel / CSV</p>
+      <input type="file" id="file" accept=".xlsx,.xls,.csv" hidden>
+      <button class="btn" id="pick">เลือกไฟล์</button>
+      <p class="mute" style="margin:12px 0 0">ต้องมีคอลัมน์: Name, Number (จำนวน), Brand, Model, Set Price</p>
+    </div>
+    <div class="msg" id="msg"></div>
+    <p><button class="btn ghost" id="clear" hidden>ล้างข้อมูลที่บันทึกไว้</button></p>
+  </section>
+
+  <section id="p-st" hidden>
+    <div class="brands" id="brands"></div>
+    <input type="search" id="q" placeholder="ค้นหารุ่น สี หรือบาร์โค้ด">
+    <div class="sum" id="sum"></div>
+    <div id="list"></div>
+  </section>
+</div>
+
+<script>
+const KEY='phone-stock-v1';
+let rows=[],brand='ALL';
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const num=v=>{const n=parseFloat(String(v??'').replace(/,/g,''));return isNaN(n)?0:n};
+const baht=n=>n?'฿'+n.toLocaleString('th-TH'):'-';
+
+function show(tab){
+  $('p-up').hidden=tab!=='up';$('p-st').hidden=tab!=='st';
+  $('t-up').setAttribute('aria-selected',tab==='up');$('t-st').setAttribute('aria-selected',tab==='st');
+  if(tab==='st')render();
+}
+$('t-up').onclick=()=>show('up');$('t-st').onclick=()=>show('st');
+
+function normalize(json){
+  const out=[];
+  for(const r of json){
+    const k={};for(const key in r)k[key.trim().toLowerCase()]=r[key];
+    const name=String(k['name']??'').trim();
+    if(!name)continue;
+    const model=String(k['model']||name).trim();
+    const b=String(k['brand']||name.split(' ')[0]).trim().toUpperCase();
+    out.push({code:String(k['product']??''),name,qty:num(k['number']),price:num(k['set price']),brand:b,model});
+  }
+  return out;
+}
+
+function load(file){
+  const rd=new FileReader();
+  rd.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const data=normalize(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:'',raw:false}));
+      if(!data.length)throw new Error('ไม่พบข้อมูล ตรวจสอบว่าแถวแรกเป็นหัวคอลัมน์ Name, Number, Brand, Model');
+      rows=data;brand='ALL';
+      try{localStorage.setItem(KEY,JSON.stringify(rows))}catch(_){}
+      $('msg').innerHTML='<span class="good">นำเข้าแล้ว '+rows.length+' รายการ</span>';
+      $('clear').hidden=false;show('st');
+    }catch(err){$('msg').innerHTML='<span class="err">อ่านไฟล์ไม่ได้: '+esc(err.message)+'</span>'}
+  };
+  rd.readAsArrayBuffer(file);
+}
+$('pick').onclick=()=>$('file').click();
+$('file').onchange=e=>e.target.files[0]&&load(e.target.files[0]);
+const dz=$('drop');
+dz.ondragover=e=>{e.preventDefault();dz.classList.add('over')};
+dz.ondragleave=()=>dz.classList.remove('over');
+dz.ondrop=e=>{e.preventDefault();dz.classList.remove('over');e.dataTransfer.files[0]&&load(e.dataTransfer.files[0])};
+$('clear').onclick=()=>{rows=[];try{localStorage.removeItem(KEY)}catch(_){}$('clear').hidden=true;$('msg').textContent='ล้างข้อมูลแล้ว';};
+$('q').oninput=render;
+
+function render(){
+  const bs={};rows.forEach(r=>bs[r.brand]=(bs[r.brand]||0)+r.qty);
+  const names=Object.keys(bs).sort();
+  const total=rows.reduce((a,r)=>a+r.qty,0);
+  $('brands').innerHTML=[['ALL','ทั้งหมด',total],...names.map(n=>[n,n,bs[n]])]
+    .map(([v,l,c])=>`<button class="chip" data-b="${esc(v)}" aria-pressed="${v===brand}">${esc(l)}<b>${c}</b></button>`).join('');
+  $('brands').querySelectorAll('.chip').forEach(b=>b.onclick=()=>{brand=b.dataset.b;render()});
+
+  const q=$('q').value.trim().toLowerCase();
+  const list=rows.filter(r=>(brand==='ALL'||r.brand===brand)&&(!q||(r.name+r.model+r.code).toLowerCase().includes(q)));
+  const g={};
+  list.forEach(r=>{const k=r.model.toLowerCase();(g[k]=g[k]||{model:r.model,items:[]}).items.push(r)});
+  const models=Object.values(g).sort((a,b)=>a.model.localeCompare(b.model));
+  const units=list.reduce((a,r)=>a+r.qty,0);
+  $('sum').innerHTML=`<div><strong>${models.length}</strong> รุ่น</div><div><strong>${list.length}</strong> รายการ (SKU)</div><div><strong>${units}</strong> เครื่อง</div>`;
+
+  if(!rows.length){$('list').innerHTML='<div class="empty">ยังไม่มีข้อมูล ไปที่แท็บ “อัปโหลดข้อมูล” เพื่อเพิ่มไฟล์</div>';return}
+  if(!models.length){$('list').innerHTML='<div class="empty">ไม่พบรุ่นที่ตรงกับที่เลือก</div>';return}
+  $('list').innerHTML=models.map(m=>{
+    const t=m.items.reduce((a,r)=>a+r.qty,0),p=m.items[0].price;
+    return `<details><summary><div class="mn"><div>${esc(m.model)}</div><div class="mute">${m.items[0].brand} · ${baht(p)}</div></div><span class="qty">${t} เครื่อง</span></summary>
+    <div class="vars">${m.items.map(r=>`<div class="v"><div class="n">${esc(r.name)}<div class="mute">${esc(r.code)}</div></div><div class="q">${r.qty}</div></div>`).join('')}</div></details>`;
+  }).join('');
+}
+
+try{const s=localStorage.getItem(KEY);if(s){rows=JSON.parse(s)||[];if(rows.length){$('msg').innerHTML='<span class="mute">มีข้อมูลที่บันทึกไว้ '+rows.length+' รายการ</span>';$('clear').hidden=false;show('st')}}}catch(_){}
+</script>
+</body>
+</html>
