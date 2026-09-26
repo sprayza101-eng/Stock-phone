@@ -88,21 +88,25 @@ const fixBrand=r=>{const t=(r.model+' '+r.name).toLowerCase();if(/ipad/.test(t))
 function pick(k,names){for(const n of names){const v=k[n];if(v!==undefined&&String(v).trim()!=='')return String(v).trim()}return ''}
 function parseDate(s){
   if(!s)return null;
-  let d=new Date(s);
-  if(!isNaN(d))return d;
-  const m=String(s).match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
-  if(m){d=new Date(+m[3]<100?2000+ +m[3]:+m[3],+m[2]-1,+m[1]);if(!isNaN(d))return d}
-  return null;
+  const m=String(s).match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
+  if(!m)return null;
+  let day=+m[1],mon=+m[2],yr=+m[3];
+  if(yr<100)yr+=2000;
+  if(yr>2400)yr-=543; // ปี พ.ศ. -> ค.ศ.
+  const d=new Date(yr,mon-1,day);
+  return isNaN(d)?null:d;
 }
 function normalize(json){
   const out=[];
+  let seq=0;
   for(const r of json){
     const k={};for(const key in r)k[key.trim().toLowerCase()]=r[key];
     const name=String(k['name']??'').trim();
     if(!name)continue;
-    const dateStr=pick(k,['date','received date','date in','import date','instock date','วันที่','วันที่รับเข้า']);
+    const dateStr=pick(k,['วันที่รับสินค้า (stockin)','date','received date','date in','import date','instock date','วันที่','วันที่รับเข้า']);
     const serial=pick(k,['serial','serial number','sn','s/n','imei','ซีเรียล']);
-    out.push(fixBrand({code:String(k['product']??''),name,qty:num(k['number']),price:num(k['set price']),
+    seq++;
+    out.push(fixBrand({uid:'u'+seq,code:String(k['product']??''),name,qty:num(k['number']),price:num(k['set price']),
       brand:String(k['brand']||name.split(' ')[0]).trim().toUpperCase(),model:String(k['model']||name).trim(),
       date:dateStr,serial}));
   }
@@ -187,8 +191,8 @@ function render(){
     <div class="vars">${items.map(r=>{
       const d=parseDate(r.date);
       let ageBadge='';
-      if(d){const days=Math.floor((now-d)/86400000);ageBadge=`<span class="age ${days>=60?'old':'new'}">${esc(r.date)} · ${days} วัน</span>`}
-      const serVal=serials&&r.code&&serials[r.code];
+      if(d){const days=Math.floor((now-d)/86400000);const dtxt=String(r.date).replace(/^\S+\.\s*/,'');ageBadge=`<span class="age ${days>=60?'old':'new'}">${esc(dtxt)} · ${days} วัน</span>`}
+      const serVal=serials&&r.uid&&serials[r.uid];
       const serLine=r.serial?`<div class="ser mute">S/N: ${serVal?esc(serVal):'••••• (ใส่รหัสเพื่อดู)'}</div>`:'';
       return `<div class="v"><div class="n">${esc(r.name)}<div class="mute">${esc(r.code)}</div>${ageBadge?'<div style="margin-top:4px">'+ageBadge+'</div>':''}${serLine}</div><div class="q">${r.qty}</div></div>`;
     }).join('')}</div></details>`;
