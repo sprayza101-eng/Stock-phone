@@ -42,6 +42,19 @@ summary::-webkit-details-marker{display:none}
 .ser{margin-top:2px;font-size:12px}
 .serbar{display:flex;gap:8px;align-items:center;margin-bottom:8px}
 .serbar input{flex:1;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
+.swtoggle{display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:8px;cursor:pointer;user-select:none}
+.swtoggle input{position:absolute;opacity:0;width:0;height:0}
+.swtrack{width:38px;height:22px;background:var(--line);border-radius:999px;position:relative;flex:none;transition:.15s}
+.swtrack::after{content:'';position:absolute;top:2px;left:2px;width:18px;height:18px;background:#fff;border-radius:50%;transition:.15s;box-shadow:0 1px 2px rgba(0,0,0,.3)}
+.swtoggle input:checked+.swtrack{background:var(--acc)}
+.swtoggle input:checked+.swtrack::after{transform:translateX(16px)}
+.vgrp{padding:9px 0;border-bottom:1px dashed var(--line)}
+.vgrp:last-child{border-bottom:0}
+.vhead{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.vhead .vname{font-weight:500;flex:1;overflow-wrap:anywhere}
+.dot{width:11px;height:11px;border-radius:50%;flex:none;border:1px solid rgba(0,0,0,.15)}
+.qty.sm{font-size:12px;padding:1px 8px}
+.units .v:last-child{border:0}
 :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 </style>
 </head>
@@ -64,6 +77,7 @@ summary::-webkit-details-marker{display:none}
     <input id="serpw" type="password" placeholder="รหัสสำหรับดูซีเรียล">
     <button class="btn" id="serbtn">ปลดล็อกซีเรียล</button>
   </div>
+  <label class="swtoggle"><input type="checkbox" id="sersw"><span class="swtrack"></span>แสดงเลขซีเรียลในรายการ</label>
   <div id="sermsg" class="err"></div>
   <div class="brands" id="brands"></div>
   <input type="search" id="q" placeholder="ค้นหารุ่น สี หรือบาร์โค้ด">
@@ -86,6 +100,33 @@ const fmt=d=>new Date(d).toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'s
 
 const fixBrand=r=>{const t=(r.model+' '+r.name).toLowerCase();if(/ipad/.test(t))r.brand='IPAD';else if(/iphone/.test(t))r.brand='IPHONE';return r};
 function pick(k,names){for(const n of names){const v=k[n];if(v!==undefined&&String(v).trim()!=='')return String(v).trim()}return ''}
+function cleanSerial(v){
+  let s=String(v??'').trim();
+  if(!s)return '';
+  if(/e\+?\d+$/i.test(s)){const n=Number(s);if(Number.isFinite(n))s=n.toFixed(0)} // เลขซีเรียลยาวๆ ที่ Excel แปลงเป็น 3.5E+14
+  else if(/^\d+\.0+$/.test(s))s=s.split('.')[0]; // ตัด .0 ท้ายเลขที่ Excel เติมมาให้
+  return s.replace(/[\s,]/g,'');
+}
+function prettyModel(m){return String(m).replace(/iphone/i,'iPhone').replace(/ipad/i,'iPad')}
+function variantOf(r){
+  const nameL=r.name.toLowerCase(),modelL=r.model.toLowerCase();
+  const idx=nameL.indexOf(modelL);
+  let rest=(idx!==-1?r.name.slice(idx+r.model.length):r.name).trim();
+  let capacity='';
+  const cm=rest.match(/^(\d+)\s?(GB|TB)\b/i);
+  if(cm){capacity=cm[1]+cm[2].toUpperCase();rest=rest.slice(cm[0].length).trim()}
+  return{capacity,color:rest||'ไม่ระบุสี'};
+}
+function colorDot(color){
+  const c=color.toLowerCase();
+  const map=[[/black|graphite|space\s?gr[ae]y/,'#2b2b2e'],[/white|starlight|snow/,'#e9e9ec'],
+    [/blue/,'#3b6fd4'],[/pink/,'#eda8c0'],[/red/,'#c62828'],[/green/,'#3f7a52'],[/yellow/,'#e8d43a'],
+    [/purple|lavender/,'#8a7bc8'],[/orange/,'#d9752b'],[/gold|champagne/,'#d9c08a'],
+    [/burgundy|maroon/,'#5c1f2b'],[/glacier|ice/,'#bcdcf0'],[/sage/,'#a7b596'],
+    [/titanium|natural|desert/,'#b8b0a4'],[/midnight/,'#1c1f2b'],[/silver/,'#c7cad1'],[/teal/,'#2f7a7a']];
+  for(const[re,hex]of map)if(re.test(c))return hex;
+  return 'var(--line)';
+}
 function parseDate(s){
   if(!s)return null;
   const m=String(s).match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
@@ -104,7 +145,7 @@ function normalize(json){
     const name=String(k['name']??'').trim();
     if(!name)continue;
     const dateStr=pick(k,['วันที่รับสินค้า (stockin)','date','received date','date in','import date','instock date','วันที่','วันที่รับเข้า']);
-    const serial=pick(k,['serial','serial number','sn','s/n','imei','ซีเรียล']);
+    const serial=cleanSerial(pick(k,['serial','serial number','sn','s/n','imei','ซีเรียล']));
     seq++;
     out.push(fixBrand({uid:'u'+seq,code:String(k['product']??''),name,qty:num(k['number']),price:num(k['set price']),
       brand:String(k['brand']||name.split(' ')[0]).trim().toUpperCase(),model:String(k['model']||name).trim(),
@@ -156,7 +197,11 @@ $('go').onclick=async()=>{
 };
 try{$('apw').value=localStorage.getItem('adm-pw')||''}catch(_){}
 
-let serials=null;
+let serials=null,serialsOn=false;
+try{serialsOn=localStorage.getItem('ser-on')==='1'}catch(_){}
+$('sersw').checked=serialsOn;
+$('sersw').onchange=()=>{serialsOn=$('sersw').checked;try{localStorage.setItem('ser-on',serialsOn?'1':'0')}catch(_){}render()};
+
 $('serbtn').onclick=async()=>{
   const pw=$('serpw').value,m=$('sermsg');
   m.textContent='';
@@ -166,7 +211,9 @@ $('serbtn').onclick=async()=>{
     const res=await fetch(SB_URL+'/rest/v1/rpc/get_serials',{method:'POST',headers:{...H,'Content-Type':'application/json'},body:JSON.stringify({p_pw:pw})});
     if(!res.ok){const t=await res.text();throw new Error(t.includes('wrong password')?'รหัสไม่ถูกต้อง':'เปิดไม่สำเร็จ')}
     serials=await res.json();
-    $('serbtn').textContent='ปลดล็อกแล้ว';render();
+    $('serbtn').textContent='ปลดล็อกแล้ว';
+    serialsOn=true;$('sersw').checked=true;try{localStorage.setItem('ser-on','1')}catch(_){}
+    render();
   }catch(e){m.textContent=e.message}
   $('serbtn').disabled=false;
 };
@@ -182,24 +229,41 @@ function render(){
   const g={};
   list.forEach(r=>{const k=r.model.toLowerCase();(g[k]=g[k]||{model:r.model,items:[]}).items.push(r)});
   const models=Object.values(g).sort((a,b)=>a.model.localeCompare(b.model));
+  // แยกรายการในแต่ละรุ่นออกเป็นกลุ่มย่อยตามความจุ+สี ให้เห็นชัดว่ารุ่นไหนมีสีอะไรเหลือกี่เครื่อง
+  models.forEach(m=>{
+    const vg={};
+    m.items.forEach(r=>{
+      const{capacity,color}=variantOf(r);
+      const vk=capacity+'|'+color.toLowerCase();
+      (vg[vk]=vg[vk]||{capacity,color,items:[]}).items.push(r);
+    });
+    m.variants=Object.values(vg).sort((a,b)=>(a.capacity||'').localeCompare(b.capacity||'')||a.color.localeCompare(b.color));
+  });
   $('sum').innerHTML=`<div><strong>${models.length}</strong> รุ่น</div><div><strong>${list.length}</strong> รายการ</div><div><strong>${list.reduce((a,r)=>a+r.qty,0)}</strong> เครื่อง</div>`;
   if(!models.length){$('list').innerHTML='<div class="empty">'+(rows.length?'ไม่พบรุ่นที่ตรงกับที่เลือก':'ยังไม่มีข้อมูล')+'</div>';return}
   const now=new Date();
   $('list').innerHTML=models.map(m=>{
     const t=m.items.reduce((a,r)=>a+r.qty,0);
-    const items=m.items.slice().sort((a,b)=>{
-      const da=parseDate(a.date),db=parseDate(b.date);
-      if(da&&db)return da-db;if(da)return -1;if(db)return 1;return 0;
-    });
-    return `<details><summary><div class="mn"><div>${esc(m.model)}</div><div class="mute">${esc(m.items[0].brand)} · ${baht(m.items[0].price)}</div></div><span class="qty">${t} เครื่อง</span></summary>
-    <div class="vars">${items.map(r=>{
-      const d=parseDate(r.date);
-      let ageBadge='';
-      if(d){const days=Math.floor((now-d)/86400000);const dtxt=String(r.date).replace(/^\S+\.\s*/,'');ageBadge=`<span class="age ${days>=60?'old':'new'}">${esc(dtxt)} · ${days} วัน</span>`}
-      const serVal=serials&&r.uid&&serials[r.uid];
-      const serLine=r.serial?`<div class="ser mute">S/N: ${serVal?esc(serVal):'••••• (ใส่รหัสเพื่อดู)'}</div>`:'';
-      return `<div class="v"><div class="n">${esc(r.name)}<div class="mute">${esc(r.code)}</div>${ageBadge?'<div style="margin-top:4px">'+ageBadge+'</div>':''}${serLine}</div><div class="q">${r.qty}</div></div>`;
-    }).join('')}</div></details>`;
+    const prices=[...new Set(m.items.map(r=>r.price).filter(Boolean))];
+    const priceTxt=prices.length>1?baht(Math.min(...prices))+'–'+baht(Math.max(...prices)):baht(prices[0]||0);
+    const varHtml=m.variants.map(v=>{
+      const vt=v.items.reduce((a,r)=>a+r.qty,0);
+      const items=v.items.slice().sort((a,b)=>{
+        const da=parseDate(a.date),db=parseDate(b.date);
+        if(da&&db)return da-db;if(da)return -1;if(db)return 1;return 0;
+      });
+      return `<div class="vgrp"><div class="vhead"><span class="dot" style="background:${colorDot(v.color)}"></span><span class="vname">${esc(v.capacity?v.capacity+' · ':'')}${esc(v.color)}</span><span class="qty sm">${vt} เครื่อง</span></div>
+      <div class="units">${items.map(r=>{
+        const d=parseDate(r.date);
+        let ageBadge='';
+        if(d){const days=Math.floor((now-d)/86400000);const dtxt=String(r.date).replace(/^\S+\.\s*/,'');ageBadge=`<span class="age ${days>=60?'old':'new'}">${esc(dtxt)} · ${days} วัน</span>`}
+        const serVal=serials&&r.uid&&serials[r.uid];
+        const serLine=(serialsOn&&r.serial)?`<div class="ser mute">S/N: ${serVal?esc(serVal):'••••• (ใส่รหัสเพื่อดู)'}</div>`:'';
+        return `<div class="v"><div class="n">${esc(r.code)}${ageBadge?'<div style="margin-top:4px">'+ageBadge+'</div>':''}${serLine}</div><div class="q">${baht(r.price)}</div></div>`;
+      }).join('')}</div></div>`;
+    }).join('');
+    return `<details><summary><div class="mn"><div>${esc(prettyModel(m.model))}</div><div class="mute">${esc(m.items[0].brand)} · ${priceTxt}</div></div><span class="qty">${t} เครื่อง</span></summary>
+    <div class="vars">${varHtml}</div></details>`;
   }).join('');
 }
 $('q').oninput=render;$('ref').onclick=load;load();
