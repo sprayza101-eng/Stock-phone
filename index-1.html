@@ -78,6 +78,7 @@ summary::-webkit-details-marker{display:none}
     <button class="btn" id="serbtn">ปลดล็อกซีเรียล</button>
   </div>
   <label class="swtoggle"><input type="checkbox" id="sersw"><span class="swtrack"></span>แสดงเลขซีเรียลในรายการ</label>
+  <div id="serhint" class="mute" style="font-size:12px;margin:-2px 0 8px"></div>
   <div id="sermsg" class="err"></div>
   <div class="brands" id="brands"></div>
   <input type="search" id="q" placeholder="ค้นหารุ่น สี หรือบาร์โค้ด">
@@ -229,6 +230,9 @@ function render(){
   $('brands').innerHTML=[['ALL','ทั้งหมด',total],...Object.keys(bs).sort().map(n=>[n,n,bs[n]])]
     .map(([v,l,c])=>`<button class="chip" data-b="${esc(v)}" aria-pressed="${v===brand}">${esc(l)}<b>${c}</b></button>`).join('');
   $('brands').querySelectorAll('.chip').forEach(b=>b.onclick=()=>{brand=b.dataset.b;render()});
+  // ถ้าเปิดสวิตช์ไว้แต่ข้อมูลที่โหลดมาไม่มีซีเรียลเลยสักแถว แสดงว่าเป็นชุดข้อมูลเก่าก่อนแก้โค้ด ต้องอัปโหลดไฟล์ใหม่ทับ
+  $('serhint').textContent=(serialsOn&&rows.length&&!rows.some(r=>r.serial))
+    ?'ยังไม่มีข้อมูลซีเรียลในระบบ — กด "อัปโหลดไฟล์ Excel" ด้านบนแล้วอัปโหลดไฟล์เดิมซ้ำอีกครั้งเพื่อบันทึกซีเรียล':'';
   const q=$('q').value.trim().toLowerCase();
   const list=rows.filter(r=>(brand==='ALL'||r.brand===brand)&&(!q||(r.name+r.model+r.code).toLowerCase().includes(q)));
   const g={};
