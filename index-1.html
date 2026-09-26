@@ -197,7 +197,7 @@ function render(){
       let ageBadge='';
       if(d){const days=Math.floor((now-d)/86400000);const dtxt=String(r.date).replace(/^\S+\.\s*/,'');ageBadge=`<span class="age ${days>=60?'old':'new'}">${esc(dtxt)} · ${days} วัน</span>`}
       const serVal=serials&&r.uid&&serials[r.uid];
-      const serLine=r.serial?`<div class="ser mute">S/N: ${serVal?esc(serVal):'••••• (ใส่รหัสเพื่อดู)'}</div>`:'';
+      const serLine=r.uid?`<div class="ser mute">S/N: ${serVal?esc(serVal):'••••• (ใส่รหัสเพื่อดู)'}</div>`:'';
       return `<div class="v"><div class="n">${esc(r.name)}<div class="mute">${esc(r.code)}</div>${ageBadge?'<div style="margin-top:4px">'+ageBadge+'</div>':''}${serLine}</div><div class="q">${r.qty}</div></div>`;
     }).join('')}</div></details>`;
   }).join('');
