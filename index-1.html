@@ -158,15 +158,19 @@ try{$('apw').value=localStorage.getItem('adm-pw')||''}catch(_){}
 
 let serials=null;
 $('serbtn').onclick=async()=>{
-  const pw=$('serpw').value,m=$('sermsg');
+  const m=$('sermsg');
   m.textContent='';
+  if(serials){
+    serials=null;$('serbtn').textContent='ปลดล็อกซีเรียล';render();return;
+  }
+  const pw=$('serpw').value;
   if(!pw){m.textContent='กรอกรหัสก่อน';return}
   $('serbtn').disabled=true;
   try{
     const res=await fetch(SB_URL+'/rest/v1/rpc/get_serials',{method:'POST',headers:{...H,'Content-Type':'application/json'},body:JSON.stringify({p_pw:pw})});
     if(!res.ok){const t=await res.text();throw new Error(t.includes('wrong password')?'รหัสไม่ถูกต้อง':'เปิดไม่สำเร็จ')}
     serials=await res.json();
-    $('serbtn').textContent='ปลดล็อกแล้ว';render();
+    $('serbtn').textContent='ล็อกซีเรียล';render();
   }catch(e){m.textContent=e.message}
   $('serbtn').disabled=false;
 };
