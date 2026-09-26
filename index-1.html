@@ -143,7 +143,11 @@ $('go').onclick=async()=>{
     if(!confirm('แทนที่ข้อมูลเดิมด้วย '+data.length+' รายการ?'))throw new Error('ยกเลิก');
     m.textContent='กำลังอัปโหลด...';
     const res=await fetch(SB_URL+'/rest/v1/rpc/save_stock',{method:'POST',headers:{...H,'Content-Type':'application/json'},body:JSON.stringify({p_pw:pw,p_rows:data})});
-    if(!res.ok){const t=await res.text();throw new Error(t.includes('wrong password')?'รหัสผ่านไม่ถูกต้อง':'อัปโหลดไม่สำเร็จ ('+res.status+')')}
+    if(!res.ok){
+      const t=await res.text();
+      let msg=t;try{const j=JSON.parse(t);msg=j.message||j.error||t}catch(_){}
+      throw new Error(msg.includes('wrong password')?'รหัสผ่านไม่ถูกต้อง':'อัปโหลดไม่สำเร็จ: '+msg.slice(0,300))
+    }
     try{localStorage.setItem('adm-pw',pw)}catch(_){}
     m.className='ok';m.textContent='อัปโหลดสำเร็จ '+data.length+' รายการ';
     await load();
