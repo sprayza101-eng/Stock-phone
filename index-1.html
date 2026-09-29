@@ -96,17 +96,17 @@ function parseDate(s){
   const d=new Date(yr,mon-1,day);
   return isNaN(d)?null:d;
 }
+let gSeq=0;
 function normalize(json){
   const out=[];
-  let seq=0;
   for(const r of json){
     const k={};for(const key in r)k[key.trim().toLowerCase()]=r[key];
     const name=String(k['name']??'').trim();
     if(!name)continue;
     const dateStr=pick(k,['วันที่รับสินค้า (stockin)','date','received date','date in','import date','instock date','วันที่','วันที่รับเข้า']);
     const serial=pick(k,['serial','serial number','sn','s/n','imei','ซีเรียล']);
-    seq++;
-    out.push(fixBrand({uid:'u'+seq,code:String(k['product']??''),name,qty:num(k['number']),price:num(k['set price']),
+    gSeq++;
+    out.push(fixBrand({uid:'u'+gSeq,code:String(k['product']??''),name,qty:num(k['number']),price:num(k['set price']),
       brand:String(k['brand']||name.split(' ')[0]).trim().toUpperCase(),model:String(k['model']||name).trim(),
       date:dateStr,serial}));
   }
@@ -138,7 +138,10 @@ $('go').onclick=async()=>{
   $('go').disabled=true;m.textContent='กำลังอ่านไฟล์...';
   try{
     const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
-    const data=normalize(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:'',raw:false}));
+    let data=[];
+    for(const sn of wb.SheetNames){
+      data=data.concat(normalize(XLSX.utils.sheet_to_json(wb.Sheets[sn],{defval:'',raw:false})));
+    }
     if(!data.length)throw new Error('ไม่พบข้อมูล ตรวจสอบหัวคอลัมน์ Name, Number, Brand, Model');
     if(!confirm('แทนที่ข้อมูลเดิมด้วย '+data.length+' รายการ?'))throw new Error('ยกเลิก');
     m.textContent='กำลังอัปโหลด...';
