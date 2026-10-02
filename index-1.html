@@ -57,6 +57,7 @@ summary::-webkit-details-marker{display:none}
       <input id="apw" type="password" placeholder="รหัสผ่านผู้ดูแล">
       <input type="file" id="file" accept=".xlsx,.xls,.csv">
       <button class="btn" id="go">อัปโหลดและแทนที่ข้อมูลทั้งหมด</button>
+      <button class="btn" id="del" style="background:#c0392b;color:#fff;margin-top:8px">ลบไฟล์เก่า (ล้างข้อมูลทั้งหมด)</button>
       <div id="umsg" class="mute"></div>
     </div>
   </details>
@@ -157,6 +158,26 @@ $('go').onclick=async()=>{
   }catch(e){m.className='err';m.textContent=e.message}
   $('go').disabled=false;
 };
+$('del').onclick=async()=>{
+  const pw=$('apw').value,m=$('umsg');
+  m.className='mute';
+  if(!pw){m.textContent='กรอกรหัสผ่านผู้ดูแลก่อน';return}
+  if(!confirm('ลบข้อมูลสต็อกเก่าทั้งหมด? (ทุกคนจะเห็นว่าว่างเปล่าจนกว่าจะอัปโหลดไฟล์ใหม่)'))return;
+  $('del').disabled=true;m.textContent='กำลังลบ...';
+  try{
+    const res=await fetch(SB_URL+'/rest/v1/rpc/save_stock',{method:'POST',headers:{...H,'Content-Type':'application/json'},body:JSON.stringify({p_pw:pw,p_rows:[]})});
+    if(!res.ok){
+      const t=await res.text();
+      let msg=t;try{const j=JSON.parse(t);msg=j.message||j.error||t}catch(_){}
+      throw new Error(msg.includes('wrong password')?'รหัสผ่านไม่ถูกต้อง':'ลบไม่สำเร็จ: '+msg.slice(0,300))
+    }
+    serials=null;$('serbtn').textContent='ปลดล็อกซีเรียล';
+    $('file').value='';
+    m.className='ok';m.textContent='ลบข้อมูลเก่าแล้ว เลือกไฟล์ใหม่แล้วกดอัปโหลดได้เลย';
+    await load();
+  }catch(e){m.className='err';m.textContent=e.message}
+  $('del').disabled=false;
+};
 try{$('apw').value=localStorage.getItem('adm-pw')||''}catch(_){}
 
 let serials=null;
@@ -204,7 +225,8 @@ function render(){
       let ageBadge='';
       if(serials&&d){const days=Math.floor((now-d)/86400000);const dtxt=String(r.date).replace(/^\S+\.\s*/,'');ageBadge=`<span class="age ${days>=60?'old':'new'}">${esc(dtxt)} · ${days} วัน</span>`}
       const serVal=serials&&r.uid&&serials[r.uid];
-      const serLine=r.uid?`<div class="ser mute">S/N: ${serVal?esc(serVal):'••••• (ใส่รหัสเพื่อดู)'}</div>`:'';
+      const serTxt=!serials?'••••• (ใส่รหัสเพื่อดู)':(serVal?esc(serVal):'ไม่มีข้อมูลซีเรียลในไฟล์');
+      const serLine=`<div class="ser mute">S/N: ${serTxt}</div>`;
       return `<div class="v"><div class="n">${esc(r.name)}<div class="mute">${esc(r.code)}</div>${ageBadge?'<div style="margin-top:4px">'+ageBadge+'</div>':''}${serLine}</div><div class="q">${r.qty}</div></div>`;
     }).join('')}</div></details>`;
   }).join('');
